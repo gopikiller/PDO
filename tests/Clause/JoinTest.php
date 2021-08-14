@@ -8,7 +8,6 @@
 namespace FaaPz\PDO\Test;
 
 use FaaPz\PDO\Clause;
-use FaaPz\PDO\DatabaseException;
 use FaaPz\PDO\Statement;
 use PDO;
 use PHPUnit\Framework\TestCase;
@@ -19,7 +18,8 @@ class JoinTest extends TestCase
     {
         $subject = new Clause\Join(
             'table',
-            new Clause\Conditional('column', '=', 'value'));
+            new Clause\Conditional('column', '=', 'value')
+        );
 
         $this->assertEquals('JOIN table ON column = ?', $subject->__toString());
     }
@@ -52,7 +52,9 @@ class JoinTest extends TestCase
             new Clause\Conditional('column1', '=', 'value1')
         );
 
-        $this->expectException(DatabaseException::class);
+        $this->expectError();
+        $this->expectErrorMessageMatches('/^Invalid subject value/');
+
         $subject->__toString();
     }
 
@@ -73,7 +75,9 @@ class JoinTest extends TestCase
             new Clause\Conditional('column1', '=', 'value1')
         );
 
-        $this->expectException(DatabaseException::class);
+        $this->expectError();
+        $this->expectErrorMessageMatches('/^Invalid subject array/');
+
         $subject->__toString();
     }
 
@@ -95,7 +99,8 @@ class JoinTest extends TestCase
     {
         $subject = new Clause\Join(
             'table',
-            new Clause\Conditional('column', '=', 'value'));
+            new Clause\Conditional('column', '=', 'value')
+        );
 
         $this->assertIsArray($subject->getValues());
         $this->assertCount(1, $subject->getValues());

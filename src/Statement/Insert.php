@@ -8,7 +8,7 @@
 namespace FaaPz\PDO\Statement;
 
 use FaaPz\PDO\AbstractStatement;
-use FaaPz\PDO\DatabaseException;
+use FaaPz\PDO\Clause\Raw;
 use FaaPz\PDO\QueryInterface;
 use PDO;
 
@@ -26,6 +26,9 @@ class Insert extends AbstractStatement
     /** @var bool $ignore */
     protected $ignore = false;
 
+    /** @var array<string, mixed> $update */
+    protected $update = [];
+
     /**
      * @param PDO                  $dbh
      * @param array<string, mixed> $pairs
@@ -38,11 +41,11 @@ class Insert extends AbstractStatement
     }
 
     /**
-     * @param $table
+     * @param string $table
      *
      * @return $this
      */
-    public function into(string $table)
+    public function into(string $table): self
     {
         $this->table = $table;
 
@@ -54,7 +57,7 @@ class Insert extends AbstractStatement
      *
      * @return $this
      */
-    public function columns(...$columns)
+    public function columns(string ...$columns): self
     {
         $this->columns = $columns;
 
@@ -66,7 +69,7 @@ class Insert extends AbstractStatement
      *
      * @return $this
      */
-    public function values(...$values)
+    public function values(...$values): self
     {
         $this->values = $values;
 
@@ -78,7 +81,7 @@ class Insert extends AbstractStatement
      *
      * @return $this
      */
-    public function pairs(array $pairs)
+    public function pairs(array $pairs): self
     {
         $this->columns(...array_keys($pairs));
         $this->values(...array_values($pairs));
@@ -89,7 +92,7 @@ class Insert extends AbstractStatement
     /**
      * @return $this
      */
-    public function ignore()
+    public function ignore(): self
     {
         $this->ignore = true;
 
@@ -97,43 +100,101 @@ class Insert extends AbstractStatement
     }
 
     /**
+     * @param array<string, mixed> $paris
+     *
+     * @return $this
+     */
+    public function onDuplicateUpdate(array $paris = []): self
+    {
+        $this->update = $paris;
+
+        return $this;
+    }
+
+    /**
      * @return string
      */
-    public function __toString() : string
+    public function __toString(): string
     {
         if (empty($this->table)) {
-            throw new DatabaseException('No table is set for insertion');
+            trigger_error('No table set for insert statement', E_USER_ERROR);
         }
 
-        if (empty($this->columns)) {
-            throw new DatabaseException('Missing columns for insertion');
+        $size = count($this->values);
+        if ($size < 1) {
+            trigger_error('No values set for insert statement', E_USER_ERROR);
         }
 
-        if (empty($this->values) || count($this->columns) != count($this->values)) {
-            throw new DatabaseException('Missing values for insertion');
+        if (count($this->columns) > 0 && count($this->columns) != count($this->values)) {
+            trigger_error('No values set for insert statement', E_USER_ERROR);
         }
 
-        $placeholders = '';
-        foreach ($this->values as $value) {
-            if (!empty($placeholders)) {
-                $placeholders .= ', ';
+        if ($this->values[0] instanceof Select) {
+            if (count($this->values) > 1) {
+                trigger_error('Ignoring additional values after select for insert statement', E_USER_WARNING);
             }
 
-            if ($value instanceof QueryInterface) {
-                $placeholders .= "{$value}";
+            $placeholders = " {$this->values[0]}";
+        } elseif (is_array($this->values[0])) {
+            // FIXME this plug to use a loop instead of str_rep.
+            $plug = substr(str_repeat('?, ', count($this->values[0])), 0, -2);
+            $placeholders = " VALUES ({$plug})";
+
+            for ($i = 1; $i < $size; $i++) {
+                if (!is_array($this->values[$i])) {
+                    trigger_error('Invalid nested value for insert statement', E_USER_ERROR);
+                }
+
+                if (count($this->values[0]) != count($this->values[$i])) {
+                    trigger_error('Invalid nested value count for insert statement', E_USER_ERROR);
+                }
+
+                $plug = substr(str_repeat('?, ', count($this->values[$i])), 0, -2);
+                $placeholders .= ", ({$plug})";
+            }
+        } else {
+            if ($this->values[0] instanceof Raw) {
+                $plug = "{$this->values[0]}";
+            } elseif (is_scalar($this->values[0])) {
+                $plug = '?';
             } else {
-                $placeholders .= '?';
+                trigger_error('Invalid value for insert statement', E_USER_ERROR);
             }
-        }
 
-        $columns = implode(', ', $this->columns);
+            for ($i = 1; $i < $size; $i++) {
+                if ($this->values[$i] instanceof Raw) {
+                    $plug .= ", {$this->values[$i]}";
+                } elseif (is_scalar($this->values[$i])) {
+                    $plug .= ', ?';
+                } else {
+                    trigger_error('Invalid value for insert statement', E_USER_ERROR);
+                }
+            }
+
+            $placeholders = " VALUES ({$plug})";
+        }
 
         $sql = 'INSERT';
         if ($this->ignore) {
             $sql .= ' IGNORE';
         }
-        $sql .= " INTO {$this->table} ({$columns})";
-        $sql .= " VALUES ({$placeholders})";
+        $sql .= " INTO {$this->table}";
+        if (!empty($this->columns)) {
+            $sql .= ' (' . implode(', ', $this->columns) . ')';
+        }
+        $sql .= "{$placeholders}";
+
+        if (!empty($this->update)) {
+            $sql .= ' ON DUPLICATE KEY UPDATE';
+            foreach ($this->update as $column => $value) {
+                if (!$value instanceof QueryInterface) {
+                    $value = '?';
+                }
+
+                $sql .= " {$column} = {$value}, ";
+            }
+            $sql = substr($sql, 0, -2);
+        }
 
         return $sql;
     }
@@ -141,7 +202,7 @@ class Insert extends AbstractStatement
     /**
      * @return array<int, mixed>
      */
-    public function getValues() : array
+    public function getValues(): array
     {
         $values = [];
         foreach ($this->values as $value) {
@@ -152,18 +213,14 @@ class Insert extends AbstractStatement
             }
         }
 
+        foreach ($this->update as $value) {
+            if ($value instanceof QueryInterface) {
+                $values = array_merge($values, $value->getValues());
+            } else {
+                $values[] = $value;
+            }
+        }
+
         return $values;
-    }
-
-    /**
-     * @throws DatabaseException
-     *
-     * @return int|string
-     */
-    public function execute()
-    {
-        parent::execute();
-
-        return $this->dbh->lastInsertId();
     }
 }

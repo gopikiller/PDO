@@ -7,7 +7,6 @@
 
 namespace FaaPz\PDO\Clause;
 
-use FaaPz\PDO\DatabaseException;
 use FaaPz\PDO\QueryInterface;
 
 class Conditional implements QueryInterface
@@ -36,45 +35,81 @@ class Conditional implements QueryInterface
     /**
      * @return mixed[]
      */
-    public function getValues() : array
+    public function getValues(): array
     {
         $values = $this->value;
         if (!is_array($values)) {
             $values = [$values];
         }
 
+        $count = count($values);
+        for ($i = 0; $i < $count; $i++) {
+            if ($values[$i] instanceof QueryInterface) {
+                $value = $values[$i]->getValues();
+                array_splice($values, $i, 1, $value);
+                $i += count($value);
+            }
+        }
+
         return $values;
     }
 
     /**
-     * @throws DatabaseException
+     * @param mixed $value
      *
      * @return string
      */
-    public function __toString() : string
+    protected function getPlaceholder($value): string
     {
-        $sql = "{$this->column} {$this->operator}";
+        $placeholder = '?';
+        if ($value instanceof QueryInterface) {
+            $placeholder = "{$value}";
+        }
+
+        return $placeholder;
+    }
+
+    /**
+     * @return string
+     */
+    public function __toString(): string
+    {
+        $sql = "{$this->column} {$this->operator} ";
         switch ($this->operator) {
             case 'BETWEEN':
             case 'NOT BETWEEN':
-                if (count($this->getValues()) != 2) {
-                    throw new DatabaseException('Conditional operator "BETWEEN" requires two arguments');
+                if (count($this->value) != 2) {
+                    trigger_error(
+                        "Conditional operator '{$this->operator}' requires two arguments",
+                        E_USER_ERROR
+                    );
                 }
 
-                $sql .= ' (? AND ?)';
+                $sql .= "({$this->getPlaceholder($this->value[0])} AND {$this->getPlaceholder($this->value[1])})";
                 break;
 
             case 'IN':
             case 'NOT IN':
-                if (count($this->getValues()) < 1) {
-                    throw new DatabaseException('Conditional operator "IN" requires at least one argument');
+                if (count($this->value) < 1) {
+                    trigger_error(
+                        "Conditional operator '{$this->operator}' requires at least one argument",
+                        E_USER_ERROR
+                    );
                 }
 
-                $sql .= ' ('.substr(str_repeat('?, ', count($this->getValues())), 0, -2).')';
+                $placeholders = '';
+                foreach ($this->value as $value) {
+                    if (!empty($placeholders)) {
+                        $placeholders .= ', ';
+                    }
+
+                    $placeholders .= $this->getPlaceholder($value);
+                }
+                $sql .= "({$placeholders})";
                 break;
 
             default:
-                $sql .= ' ?';
+                $sql .= $this->getPlaceholder($this->value);
         }
 
         return $sql;

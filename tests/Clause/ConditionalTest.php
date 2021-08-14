@@ -8,7 +8,6 @@
 namespace FaaPz\PDO\Test;
 
 use FaaPz\PDO\Clause;
-use FaaPz\PDO\DatabaseException;
 use PHPUnit\Framework\TestCase;
 
 class ConditionalTest extends TestCase
@@ -31,7 +30,9 @@ class ConditionalTest extends TestCase
     {
         $subject = new Clause\Conditional('col', 'IN', []);
 
-        $this->expectException(DatabaseException::class);
+        $this->expectError();
+        $this->expectErrorMessageMatches("/Conditional operator 'IN' requires at least one argument/");
+
         $subject->__toString();
     }
 
@@ -46,8 +47,24 @@ class ConditionalTest extends TestCase
     {
         $subject = new Clause\Conditional('col', 'BETWEEN', [1, 2, 3]);
 
-        $this->expectException(DatabaseException::class);
+        $this->expectError();
+        $this->expectErrorMessage("Conditional operator 'BETWEEN' requires two arguments");
+
         $subject->__toString();
+    }
+
+    public function testToStringWithQuery()
+    {
+        $subject = new Clause\Conditional('col', '=', new Clause\Raw(1));
+
+        $this->assertEquals('col = 1', $subject->__toString());
+    }
+
+    public function testToStringWithQueryAndArgs()
+    {
+        $subject = new Clause\Conditional('col', '=', new Clause\Method('test', 1, 2));
+
+        $this->assertEquals('col = test(?, ?)', $subject->__toString());
     }
 
     public function testGetValues()
@@ -56,5 +73,22 @@ class ConditionalTest extends TestCase
 
         $this->assertIsArray($subject->getValues());
         $this->assertCount(1, $subject->getValues());
+    }
+
+    public function testGetValuesWithQuery()
+    {
+        $subject = new Clause\Conditional('col', '=', new Clause\Raw(1));
+
+        $this->assertIsArray($subject->getValues());
+        $this->assertCount(0, $subject->getValues());
+        $this->assertEquals('col = 1', $subject->__toString());
+    }
+
+    public function testGetValuesWithQueryAndArgs()
+    {
+        $subject = new Clause\Conditional('col', '=', new Clause\Method('test', 1, 2));
+
+        $this->assertIsArray($subject->getValues());
+        $this->assertCount(2, $subject->getValues());
     }
 }

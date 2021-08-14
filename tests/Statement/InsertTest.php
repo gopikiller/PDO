@@ -8,7 +8,6 @@
 namespace FaaPz\PDO\Test;
 
 use FaaPz\PDO\Clause;
-use FaaPz\PDO\DatabaseException;
 use FaaPz\PDO\Statement;
 use PDO;
 use PDOStatement;
@@ -45,36 +44,87 @@ class InsertTest extends TestCase
             ->columns('one', 'two')
             ->values(1, 2);
 
-        $this->assertStringStartsWith('INSERT INTO test', $this->subject->__toString());
+        $this->assertEquals('INSERT INTO test (one, two) VALUES (?, ?)', $this->subject->__toString());
     }
 
     public function testToStringWithoutTable()
     {
-        $this->expectException(DatabaseException::class);
+        $this->expectError();
+        $this->expectErrorMessageMatches('/insert statement$/');
 
         $this->subject
             ->columns('one', 'two')
             ->values(1, 2)
             ->execute();
+    }
+
+    public function testToStringWithColumns()
+    {
+        $this->subject
+            ->into('test')
+            ->columns('col1', 'col2')
+            ->values(1, 2);
+
+        $this->assertEquals('INSERT INTO test (col1, col2) VALUES (?, ?)', $this->subject->__toString());
+    }
+
+    public function testToStringWithColumnMismatch()
+    {
+        $this->subject
+            ->into('test')
+            ->columns('col2')
+            ->values(1, 2);
+
+        $this->expectError();
+        $this->expectErrorMessageMatches('/^No values set for insert statement/');
+
+        $this->subject->__toString();
     }
 
     public function testToStringWithoutColumns()
     {
-        $this->expectException(DatabaseException::class);
-
         $this->subject
             ->into('test')
-            ->values(1, 2)
-            ->execute();
+            ->values(1, 2);
+
+        $this->assertEquals('INSERT INTO test VALUES (?, ?)', $this->subject->__toString());
     }
 
     public function testToStringWithoutValues()
     {
-        $this->expectException(DatabaseException::class);
+        $this->expectError();
+        $this->expectErrorMessageMatches('/insert statement$/');
 
         $this->subject
             ->into('test')
             ->columns('one', 'two')
+            ->execute();
+    }
+
+    public function testToStringWithSelect()
+    {
+        $select = new Statement\Select($this->createMock(PDO::class));
+        $select->from('table');
+
+        $this->subject
+            ->into('test')
+            ->values($select)
+            ->execute();
+
+        $this->assertEquals('INSERT INTO test SELECT * FROM table', $this->subject->__toString());
+    }
+
+    public function testToStringWithSelectAndArgs()
+    {
+        $this->expectError();
+        $this->expectErrorMessageMatches('/^Ignoring additional values after select for insert statement/');
+
+        $select = new Statement\Select($this->createMock(PDO::class));
+        $select->from('table');
+
+        $this->subject
+            ->into('test')
+            ->values($select, 2)
             ->execute();
     }
 
@@ -137,13 +187,17 @@ class InsertTest extends TestCase
         $this->assertCount(0, $this->subject->getValues());
     }
 
-    public function testExecute()
+    public function testGetValuesWithDuplicate()
     {
         $this->subject
-            ->into('test')
-            ->columns('id')
-            ->values(1);
+            ->columns('one')
+            ->values(1)
+            ->onDuplicateUpdate([
+                'one' => 2,
+                'two' => new Clause\Raw('1'),
+            ]);
 
-        $this->assertEquals(1, $this->subject->execute());
+        $this->assertIsArray($this->subject->getValues());
+        $this->assertCount(2, $this->subject->getValues());
     }
 }

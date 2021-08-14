@@ -14,17 +14,19 @@ class Grouping extends Conditional
 
     /**
      * @param string      $rule
+     * @param Conditional $clause
      * @param Conditional ...$clauses
      */
-    public function __construct(string $rule, Conditional ...$clauses)
+    public function __construct(string $rule, Conditional $clause, Conditional ...$clauses)
     {
-        parent::__construct('', strtoupper(trim($rule)), $clauses);
+        array_unshift($clauses, $clause);
+        parent::__construct('', $rule, $clauses);
     }
 
     /**
      * @return array
      */
-    public function getValues() : array
+    public function getValues(): array
     {
         $values = [];
         foreach ($this->value as $clause) {
@@ -37,17 +39,21 @@ class Grouping extends Conditional
     /**
      * @return string
      */
-    public function __toString() : string
+    public function __toString(): string
     {
         $sql = '';
         foreach ($this->value as $clause) {
-            if ($clause instanceof self) {
-                $clause = "({$clause})";
+            if (!empty($sql)) {
+                $sql .= " {$this->operator} ";
             }
 
-            $sql .= "{$clause} {$this->operator} ";
+            if ($clause instanceof self) {
+                $sql .= "({$clause})";
+            } else {
+                $sql .= "{$clause}";
+            }
         }
 
-        return preg_replace('/'.preg_quote(" $this->operator ", '/').'$/', '', $sql);
+        return $sql;
     }
 }

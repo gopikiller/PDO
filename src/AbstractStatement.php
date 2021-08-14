@@ -9,6 +9,7 @@ namespace FaaPz\PDO;
 
 use PDO;
 use PDOException;
+use PDOStatement;
 
 abstract class AbstractStatement implements QueryInterface
 {
@@ -24,24 +25,14 @@ abstract class AbstractStatement implements QueryInterface
     }
 
     /**
-     * @throws DatabaseException
+     * @throws PDOException
      *
      * @return mixed
      */
-    public function execute()
+    public function execute(): PDOStatement
     {
         $stmt = $this->dbh->prepare($this->__toString());
-
-        try {
-            $success = $stmt->execute($this->getValues());
-            if (!$success) {
-                $info = $stmt->errorInfo();
-
-                throw new DatabaseException($info[2], $info[0]);
-            }
-        } catch (PDOException $e) {
-            throw new DatabaseException($e->getMessage(), $e->getCode(), $e);
-        }
+        $stmt->execute($this->getValues());
 
         return $stmt;
     }

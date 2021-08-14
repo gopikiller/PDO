@@ -8,7 +8,6 @@
 namespace FaaPz\PDO\Statement;
 
 use FaaPz\PDO\AdvancedStatement;
-use FaaPz\PDO\DatabaseException;
 use FaaPz\PDO\QueryInterface;
 use PDO;
 
@@ -34,9 +33,9 @@ class Update extends AdvancedStatement
     /**
      * @param string $table
      *
-     * @return self
+     * @return $this
      */
-    public function table(string $table) : self
+    public function table(string $table): self
     {
         $this->table = $table;
 
@@ -46,9 +45,9 @@ class Update extends AdvancedStatement
     /**
      * @param array<string, mixed> $pairs
      *
-     * @return self
+     * @return $this
      */
-    public function pairs(array $pairs) : self
+    public function pairs(array $pairs): self
     {
         $this->pairs = array_merge($this->pairs, $pairs);
 
@@ -59,9 +58,9 @@ class Update extends AdvancedStatement
      * @param string $column
      * @param mixed  $value
      *
-     * @return self
+     * @return $this
      */
-    public function set(string $column, $value) : self
+    public function set(string $column, $value): self
     {
         $this->pairs[$column] = $value;
 
@@ -71,9 +70,16 @@ class Update extends AdvancedStatement
     /**
      * @return array<int, mixed>
      */
-    public function getValues() : array
+    public function getValues(): array
     {
-        $values = array_values($this->pairs);
+        $values = [];
+        foreach ($this->pairs as $value) {
+            if ($value instanceof QueryInterface) {
+                $values = array_merge($values, $value->getValues());
+            } else {
+                $values[] = $value;
+            }
+        }
 
         if ($this->where !== null) {
             $values = array_merge($values, $this->where->getValues());
@@ -89,7 +95,7 @@ class Update extends AdvancedStatement
     /**
      * @return string
      */
-    protected function getColumns() : string
+    protected function getColumns(): string
     {
         $columns = '';
         foreach ($this->pairs as $key => $value) {
@@ -110,23 +116,23 @@ class Update extends AdvancedStatement
     /**
      * @return string
      */
-    public function __toString() : string
+    public function __toString(): string
     {
         if (!isset($this->table)) {
-            throw new DatabaseException('No table is set for update');
+            trigger_error('No table set for update statement', E_USER_ERROR);
         }
 
         if (empty($this->pairs)) {
-            throw new DatabaseException('Missing columns and values for update');
+            trigger_error('No column / value pairs set for update statement', E_USER_ERROR);
         }
 
         $sql = "UPDATE {$this->table}";
         if (!empty($this->join)) {
-            $sql .= ' '.implode(' ', $this->join);
+            $sql .= ' ' . implode(' ', $this->join);
         }
 
-        $sql .= ' SET '.$this->getColumns();
-        if ($this->where != null) {
+        $sql .= " SET {$this->getColumns()}";
+        if ($this->where !== null) {
             $sql .= " WHERE {$this->where}";
         }
 
@@ -138,20 +144,10 @@ class Update extends AdvancedStatement
             $sql = substr($sql, 0, -2);
         }
 
-        if ($this->limit != null) {
-            $sql .= " LIMIT {$this->limit}";
+        if ($this->limit !== null) {
+            $sql .= " {$this->limit}";
         }
 
         return $sql;
-    }
-
-    /**
-     * @throws DatabaseException
-     *
-     * @return int
-     */
-    public function execute()
-    {
-        return parent::execute()->rowCount();
     }
 }

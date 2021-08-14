@@ -8,7 +8,6 @@
 namespace FaaPz\PDO\Test;
 
 use FaaPz\PDO\AbstractStatement;
-use FaaPz\PDO\DatabaseException;
 use PDO;
 use PDOException;
 use PDOStatement;
@@ -40,51 +39,25 @@ class AbstractStatementTest extends TestCase
             ->with($this->equalTo('toString'))
             ->willReturn($this->mock);
 
-        $this->subject = new class($pdo) extends AbstractStatement {
-            public function getValues() : array
+        $this->subject = new class ($pdo) extends AbstractStatement {
+            public function getValues(): array
             {
                 return [];
             }
 
-            public function __toString() : string
+            public function __toString(): string
             {
                 return 'toString';
             }
         };
     }
 
-    public function testExecuteSuccess()
+    public function testExecute()
     {
         $this->mock
             ->method('execute')
             ->willReturn(true);
 
         $this->assertEquals($this->mock, $this->subject->execute());
-    }
-
-    public function testExecuteException()
-    {
-        $this->mock
-            ->method('execute')
-            ->willThrowException(new PDOException('message', 100));
-
-        $this->expectException(DatabaseException::class);
-        $this->expectExceptionCode(100);
-        $this->expectExceptionMessage('message');
-
-        $this->subject->execute();
-    }
-
-    public function testExecuteFailure()
-    {
-        $this->mock
-            ->method('execute')
-            ->willReturn(false);
-
-        $this->expectException(DatabaseException::class);
-        $this->expectExceptionCode('HY100');
-        $this->expectExceptionMessage('near "bogus": syntax error');
-
-        $this->subject->execute();
     }
 }

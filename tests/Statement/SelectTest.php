@@ -8,7 +8,6 @@
 namespace FaaPz\PDO\Test;
 
 use FaapZ\PDO\Clause;
-use FaaPz\PDO\DatabaseException;
 use FaaPz\PDO\Statement;
 use PDO;
 use PHPUnit\Framework\TestCase;
@@ -164,7 +163,8 @@ class SelectTest extends TestCase
 
     public function testToStringWithoutTable()
     {
-        $this->expectException(DatabaseException::class);
+        $this->expectError();
+        $this->expectErrorMessageMatches('/^No table set for select statement/');
 
         $this->subject->execute();
     }
@@ -209,7 +209,10 @@ class SelectTest extends TestCase
                     ->from('test2')
             );
 
-        $this->assertStringMatchesFormat('(SELECT id, name FROM test1) UNION (SELECT id, name FROM test2)', $this->subject->__toString());
+        $this->assertStringMatchesFormat(
+            '(SELECT id, name FROM test1) UNION (SELECT id, name FROM test2)',
+            $this->subject->__toString()
+        );
     }
 
     public function testGetValuesWithHaving()

@@ -7,7 +7,6 @@
 
 namespace FaaPz\PDO\Clause;
 
-use FaaPz\PDO\DatabaseException;
 use FaaPz\PDO\QueryInterface;
 use FaaPz\PDO\Statement\Select;
 
@@ -37,7 +36,7 @@ class Join implements QueryInterface
     /**
      * @return mixed[]
      */
-    public function getValues() : array
+    public function getValues(): array
     {
         return $this->on->getValues();
     }
@@ -45,14 +44,14 @@ class Join implements QueryInterface
     /**
      * @return string
      */
-    public function __toString() : string
+    public function __toString(): string
     {
         $table = $this->subject;
         if (is_array($this->subject)) {
             reset($this->subject);
             $alias = key($this->subject);
             if (!is_string($alias)) {
-                throw new DatabaseException('Invalid subject array, use string keys for alias');
+                trigger_error('Invalid subject array, use string keys for alias', E_USER_ERROR);
             }
 
             $table = $this->subject[$alias];
@@ -61,7 +60,7 @@ class Join implements QueryInterface
             }
             $table .= " AS {$alias}";
         } elseif (!is_string($this->subject)) {
-            throw new DatabaseException('Invalid subject value, use array with string key for alias');
+            trigger_error('Invalid subject value, use array with string key for alias', E_USER_ERROR);
         }
 
         $sql = "JOIN {$table} ON {$this->on}";

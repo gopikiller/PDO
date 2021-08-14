@@ -9,7 +9,6 @@ namespace FaaPz\PDO\Statement;
 
 use FaaPz\PDO\AdvancedStatement;
 use FaaPz\PDO\Clause;
-use FaaPz\PDO\DatabaseException;
 use FaaPz\PDO\QueryInterface;
 use PDO;
 use PDOStatement;
@@ -28,8 +27,8 @@ class Select extends AdvancedStatement
     /** @var bool $distinct */
     protected $distinct = false;
 
-    /** @var array<int, Call|Select> */
-    private $union = [];
+    /** @var array<int, Call|Select> $union */
+    protected $union = [];
 
     /** @var array<int, string> $groupBy */
     protected $groupBy = [];
@@ -51,7 +50,7 @@ class Select extends AdvancedStatement
     /**
      * @return $this
      */
-    public function distinct()
+    public function distinct(): self
     {
         $this->distinct = true;
 
@@ -63,7 +62,7 @@ class Select extends AdvancedStatement
      *
      * @return $this
      */
-    public function columns(array $columns = ['*']) : self
+    public function columns(array $columns = ['*']): self
     {
         if (empty($columns)) {
             $this->columns = ['*'];
@@ -79,7 +78,7 @@ class Select extends AdvancedStatement
      *
      * @return $this
      */
-    public function from($table) : self
+    public function from($table): self
     {
         $this->table = $table;
 
@@ -89,9 +88,9 @@ class Select extends AdvancedStatement
     /**
      * @param Clause\Join $clause
      *
-     * @return self
+     * @return $this
      */
-    public function join(Clause\Join $clause) : self
+    public function join(Clause\Join $clause): self
     {
         $this->join[] = $clause;
 
@@ -103,7 +102,7 @@ class Select extends AdvancedStatement
      *
      * @return $this
      */
-    public function union(self $query) : self
+    public function union(self $query): self
     {
         $this->union[] = $query;
 
@@ -115,7 +114,7 @@ class Select extends AdvancedStatement
      *
      * @return $this
      */
-    public function groupBy(...$columns) : self
+    public function groupBy(string ...$columns): self
     {
         $this->groupBy = array_merge($this->groupBy, $columns);
 
@@ -127,7 +126,7 @@ class Select extends AdvancedStatement
      *
      * @return $this
      */
-    public function having(Clause\Conditional $clause) : self
+    public function having(Clause\Conditional $clause): self
     {
         $this->having = $clause;
 
@@ -137,22 +136,22 @@ class Select extends AdvancedStatement
     /**
      * @return array<int, mixed>
      */
-    public function getValues() : array
+    public function getValues(): array
     {
         $values = [];
         foreach ($this->join as $join) {
             $values = array_merge($values, $join->getValues());
         }
 
-        if ($this->where !== null) {
+        if ($this->where != null) {
             $values = array_merge($values, $this->where->getValues());
         }
 
-        if ($this->having !== null) {
+        if ($this->having != null) {
             $values = array_merge($values, $this->having->getValues());
         }
 
-        if ($this->limit !== null) {
+        if ($this->limit != null) {
             $values = array_merge($values, $this->limit->getValues());
         }
 
@@ -162,7 +161,7 @@ class Select extends AdvancedStatement
     /**
      * @return string
      */
-    protected function getColumns() : string
+    protected function getColumns(): string
     {
         $columns = '';
         foreach ($this->columns as $key => $value) {
@@ -189,10 +188,10 @@ class Select extends AdvancedStatement
     /**
      * @return string
      */
-    public function __toString() : string
+    public function __toString(): string
     {
         if (empty($this->table)) {
-            throw new DatabaseException('No table is set for selection');
+            trigger_error('No table set for select statement', E_USER_ERROR);
         }
 
         $sql = 'SELECT';
@@ -221,18 +220,18 @@ class Select extends AdvancedStatement
         $sql .= " FROM {$table}";
 
         if (!empty($this->join)) {
-            $sql .= ' '.implode(' ', $this->join);
+            $sql .= ' ' . implode(' ', $this->join);
         }
 
-        if ($this->where != null) {
+        if ($this->where !== null) {
             $sql .= " WHERE {$this->where}";
         }
 
         if (!empty($this->groupBy)) {
-            $sql .= ' GROUP BY '.implode(', ', $this->groupBy);
+            $sql .= ' GROUP BY ' . implode(', ', $this->groupBy);
         }
 
-        if ($this->having != null) {
+        if ($this->having !== null) {
             $sql .= " HAVING {$this->having}";
         }
 
@@ -244,8 +243,8 @@ class Select extends AdvancedStatement
             $sql = substr($sql, 0, -2);
         }
 
-        if ($this->limit != null) {
-            $sql .= " LIMIT {$this->limit}";
+        if ($this->limit !== null) {
+            $sql .= " {$this->limit}";
         }
 
         if (!empty($this->union)) {

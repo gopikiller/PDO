@@ -9,7 +9,6 @@ namespace FaaPz\PDO\Statement;
 
 use FaaPz\PDO\AbstractStatement;
 use FaaPz\PDO\Clause;
-use FaaPz\PDO\DatabaseException;
 use PDO;
 use PDOStatement;
 
@@ -37,9 +36,9 @@ class Call extends AbstractStatement
     /**
      * @param Clause\Method $procedure
      *
-     * @return self
+     * @return $this
      */
-    public function method(Clause\Method $procedure) : self
+    public function method(Clause\Method $procedure): self
     {
         $this->method = $procedure;
 
@@ -49,7 +48,7 @@ class Call extends AbstractStatement
     /**
      * @return mixed[]
      */
-    public function getValues() : array
+    public function getValues(): array
     {
         return $this->method->getValues();
     }
@@ -57,14 +56,12 @@ class Call extends AbstractStatement
     /**
      * @return string
      */
-    public function __toString() : string
+    public function __toString(): string
     {
         if (!$this->method instanceof Clause\Method) {
-            throw new DatabaseException('No method is set for stored procedure call');
+            trigger_error('No method set for call statement', E_USER_ERROR);
         }
 
-        $sql = "CALL {$this->method}";
-
-        return $sql;
+        return "CALL {$this->method}";
     }
 }

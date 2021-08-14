@@ -8,7 +8,6 @@
 namespace FaaPz\PDO\Statement;
 
 use FaaPz\PDO\AdvancedStatement;
-use FaaPz\PDO\DatabaseException;
 use PDO;
 
 class Delete extends AdvancedStatement
@@ -34,7 +33,7 @@ class Delete extends AdvancedStatement
      *
      * @return $this
      */
-    public function from($table) : self
+    public function from($table): self
     {
         $this->table = $table;
 
@@ -44,7 +43,7 @@ class Delete extends AdvancedStatement
     /**
      * @return array<int, mixed>
      */
-    public function getValues() : array
+    public function getValues(): array
     {
         $values = [];
         foreach ($this->join as $join) {
@@ -69,10 +68,10 @@ class Delete extends AdvancedStatement
     /**
      * @return string
      */
-    public function __toString() : string
+    public function __toString(): string
     {
         if (empty($this->table)) {
-            throw new DatabaseException('No table is set for deletion');
+            trigger_error('No table set for delete statement', E_USER_ERROR);
         }
 
         $sql = 'DELETE';
@@ -90,10 +89,10 @@ class Delete extends AdvancedStatement
         $sql .= " FROM {$table}";
 
         if (!empty($this->join)) {
-            $sql .= ' '.implode(' ', $this->join);
+            $sql .= ' ' . implode(' ', $this->join);
         }
 
-        if ($this->where != null) {
+        if ($this->where !== null) {
             $sql .= " WHERE {$this->where}";
         }
 
@@ -105,20 +104,10 @@ class Delete extends AdvancedStatement
             $sql = substr($sql, 0, -2);
         }
 
-        if ($this->limit != null) {
-            $sql .= " LIMIT {$this->limit}";
+        if ($this->limit !== null) {
+            $sql .= " {$this->limit}";
         }
 
         return $sql;
-    }
-
-    /**
-     * @throws DatabaseException
-     *
-     * @return int
-     */
-    public function execute()
-    {
-        return parent::execute()->rowCount();
     }
 }
